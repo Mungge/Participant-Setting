@@ -91,19 +91,20 @@ def execute_federated_learning():
         additional_files = {
             'pyproject.toml': pyproj,
             'client_app.py': read(client_app_path),
+            'run_fl.sh': '''#!/bin/bash
+set -e
+export PATH=$HOME/.local/bin:$PATH
+echo "Installing dependencies..."
+python3 -m pip install --upgrade pip
+python3 -m pip install flwr[simulation]>=1.20.0 flwr-datasets[vision]>=0.5.0 torch==2.7.1 torchvision==0.22.1
+echo "Checking flwr installation..."
+which flwr
+echo "Starting Flower client..."
+flwr run .
+'''
         }
 
-        custom_cmd = (
-            'export PATH=$HOME/.local/bin:$PATH && '
-            'python3 -m pip install --upgrade pip && '
-            'python3 -m pip install '
-            'flwr[simulation]>=1.20.0 '
-            'flwr-datasets[vision]>=0.5.0 '
-            'torch==2.7.1 '
-            'torchvision==0.22.1 && '
-            'which flwr && '
-            'flwr run .'
-        )
+        custom_cmd = 'chmod +x run_fl.sh && ./run_fl.sh'
 
         # VM 정보 조회하고 SSH로 직접 배포
         from utils.openstack import get_openstack_vmList
