@@ -56,14 +56,10 @@ class SSHService:
             home_dir = stdout.read().decode("utf-8").strip()
             logger.info(f"Home directory: {home_dir}")
 
-            # 원격 작업 디렉토리 생성 (홈 디렉토리 사용)
-            remote_work_dir = f"{home_dir}/fl-workspace/{task_id}"
+            # 현재 디렉토리를 작업 디렉토리로 사용 (가장 안전)
+            remote_work_dir = f"./fl-workspace/{task_id}"
             logger.info(f"Creating remote directory: {remote_work_dir}")
             stdin, stdout, stderr = client.exec_command(f"mkdir -p {remote_work_dir}")
-            mkdir_out = stdout.read().decode("utf-8")
-            mkdir_err = stderr.read().decode("utf-8")
-            if mkdir_err:
-                logger.error(f"Error creating directory: {mkdir_err}")
             
             # 디렉토리 생성 확인
             stdin, stdout, stderr = client.exec_command(f"ls -la {remote_work_dir}")
@@ -169,11 +165,32 @@ class SSHService:
             stdin, stdout, stderr = client.exec_command("echo $HOME")
             home_dir = stdout.read().decode("utf-8").strip()
             
-            # 로그 파일 읽기
-            log_path = f'{home_dir}/fl-workspace/{task_id}/{task_id}.log'
-            stdin, stdout, stderr = client.exec_command(f'cat {log_path}')
-            log_content = stdout.read().decode('utf-8')
-            error = stderr.read().decode('utf-8')
+            # 로그 파일 읽기 (여러 경로에서 시도)
+            possible_paths = [
+                f'./fl-workspace/{task_id}/{task_id}.log',
+                f'/var/tmp/fl-workspace/{task_id}/{task_id}.log',
+                f'/home/ubuntu/fl-workspace/{task_id}/{task_id}.log'
+            ]
+            
+            log_content = ""
+            error = ""
+            log_found = False
+            
+            for log_path in possible_paths:
+                stdin, stdout, stderr = client.exec_command(f'cat {log_path}')
+                temp_content = stdout.read().decode('utf-8')
+                temp_error = stderr.read().decode('utf-8')
+                
+                if temp_content and not temp_error:
+                    log_content = temp_content
+                    log_found = True
+                    logger.info(f"Found log at: {log_path}")
+                    break
+                elif not temp_error or "No such file" not in temp_error:
+                    error = temp_error
+            
+            if not log_found:
+                error = f"Log file not found in any of the expected locations: {possible_paths}"
             
             # 프로세스 상태 확인
             stdin, stdout, stderr = client.exec_command(f'ps aux | grep {task_id} | grep -v grep')

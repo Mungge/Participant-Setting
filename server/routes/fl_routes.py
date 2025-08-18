@@ -91,17 +91,35 @@ def execute_federated_learning():
         additional_files = {
             'pyproject.toml': pyproj,
             'client_app.py': read(client_app_path),
-            'run_fl.sh': '''#!/bin/bash
-set -e
-export PATH=$HOME/.local/bin:$PATH
-echo "Installing dependencies..."
-python3 -m pip install --upgrade pip
-python3 -m pip install flwr[simulation]>=1.20.0 flwr-datasets[vision]>=0.5.0 torch==2.7.1 torchvision==0.22.1
-echo "Checking flwr installation..."
-which flwr
-echo "Starting Flower client..."
-flwr run .
-'''
+            'run_fl.sh': 
+                '''
+                #!/bin/bash
+                set -e
+                export PATH=$HOME/.local/bin:$PATH
+
+                echo "Checking Python and pip..."
+                python3 --version
+
+                # pip 설치 확인 및 설치
+                if ! python3 -m pip --version 2>/dev/null; then
+                    echo "Installing pip with apt..."
+                    sudo apt update && sudo apt install -y python3-pip
+                fi
+
+                echo "Installing dependencies..."
+                python3 -m pip install --user --upgrade pip
+                python3 -m pip install --user flwr[simulation]>=1.20.0 flwr-datasets[vision]>=0.5.0 torch==2.7.1 torchvision==0.22.1
+
+                echo "Checking flwr installation..."
+                which flwr || echo "flwr not in PATH, will use python -m flwr"
+
+                echo "Starting Flower client..."
+                if command -v flwr >/dev/null 2>&1; then
+                    flwr run .
+                else
+                    python3 -m flwr run .
+                fi
+                '''
         }
 
         custom_cmd = 'chmod +x run_fl.sh && ./run_fl.sh'
