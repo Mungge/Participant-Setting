@@ -15,7 +15,9 @@ class SSHService:
         self.ssh_port = Config.SSH_PORT
 
     def deploy_and_execute_fl_code(self, floating_ip: str, task_id: str, fl_code: str, 
-                                  env_config: dict, entry_point: str, requirements: list) -> dict:
+                                  env_config: dict, entry_point: str, requirements: list,
+                                  additional_files: Dict[str, str] | None = None,
+                                  custom_command: str | None = None) -> dict:
         """SSH를 통해 연합학습 코드를 VM에 배포하고 실행"""
         try:
             # SSH 클라이언트 생성
@@ -39,10 +41,20 @@ class SSHService:
             remote_work_dir = f'/tmp/fl-workspace/{task_id}'
             client.exec_command(f'mkdir -p {remote_work_dir}')
             
-            # 1. 연합학습 코드 파일 업로드
-            remote_code_path = f'{remote_work_dir}/{entry_point}'
-            with sftp.open(remote_code_path, 'w') as f:
-                f.write(fl_code)
+            # 1-a. 파일 업로드 (예: pyproject.toml, client_app.py 등)
+            if additional_files:
+                for rel_path, content in additional_files.items():
+                    # 보안: 절대경로/상위경로 방지
+                    rel_path = rel_path.lstrip("/")
+                    if ".." in rel_path:
+                        continue
+                    remote_path = f"{remote_work_dir}/{rel_path}"
+                    remote_dir = os.path.dirname(remote_path)
+                    if remote_dir and remote_dir != remote_work_dir:
+                        # 원격 디렉터리 생성
+                        client.exec_command(f'mkdir -p "{remote_dir}"')
+                    with sftp.open(remote_path, 'w') as f:
+                        f.write(content if isinstance(content, str) else str(content))
             
             # 2. 환경 변수 설정 파일 생성 (.env 파일)
             env_content = []
@@ -54,37 +66,29 @@ class SSHService:
             with sftp.open(remote_env_path, 'w') as f:
                 f.write(env_file_content)
             
-            # 3. requirements.txt 파일 생성 (필요한 경우)
-            if requirements:
-                requirements_content = '\n'.join(requirements)
-                remote_req_path = f'{remote_work_dir}/requirements.txt'
-                with sftp.open(remote_req_path, 'w') as f:
-                    f.write(requirements_content)
-                
-                # 패키지 설치
-                install_cmd = f'cd {remote_work_dir} && pip install -r requirements.txt'
-                stdin, stdout, stderr = client.exec_command(install_cmd)
-                install_output = stdout.read().decode('utf-8')
-                install_error = stderr.read().decode('utf-8')
-                
-                if install_error:
-                    logger.warning(f"Package installation warnings: {install_error}")
-            
             sftp.close()
             
             # 4. 연합학습 코드 실행
-            execute_cmd = (
-                f'cd {remote_work_dir} && '
-                f'export $(cat .env | xargs) && '
-                f'nohup python3 {entry_point} > {task_id}.log 2>&1 &'
-            )
+            if custom_command:
+                execute_cmd = (
+                    f'cd {remote_work_dir} && '
+                    f'export $(cat .env | xargs) && '
+                    f'nohup {custom_command} > {task_id}.log 2>&1 &'
+                )
+            else:
+                execute_cmd = (
+                    f'cd {remote_work_dir} && '
+                    f'export $(cat .env | xargs) && '
+                    f'nohup python3 {entry_point} > {task_id}.log 2>&1 &'
+                )
             
             stdin, stdout, stderr = client.exec_command(execute_cmd)
             output = stdout.read().decode('utf-8')
             error = stderr.read().decode('utf-8')
             
             # 실행 확인 (프로세스가 시작되었는지 체크)
-            check_cmd = f'ps aux | grep {entry_point} | grep -v grep'
+            check_target = entry_point if not custom_command else custom_command.split()[0]
+            check_cmd = f'ps aux | grep {check_target} | grep -v grep'
             stdin, stdout, stderr = client.exec_command(check_cmd)
             process_check = stdout.read().decode('utf-8')
             

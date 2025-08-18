@@ -14,6 +14,13 @@
 		}
 	}
 
+	function showEnvPreview(cfg) {
+		const pre = $("#env-preview");
+		if (!pre) return;
+		pre.hidden = false;
+		pre.textContent = JSON.stringify({ run_config: cfg }, null, 2);
+	}
+
 	// Overview
 	async function loadOverview() {
 		const data = await fetchJSON("/health");
@@ -72,11 +79,10 @@
 			});
 		});
 	}
-	async function loadVMs() {
+	$("#refresh-vms").addEventListener("click", async () => {
 		const data = await fetchJSON("/api/vms");
 		renderVMs(data.vms || []);
-	}
-	$("#refresh-vms").addEventListener("click", loadVMs);
+	});
 
 	// Direct IP SSH check
 	const ipBtn = document.querySelector("#ssh-check-ip-btn");
@@ -103,39 +109,25 @@
 		});
 	}
 
-	// FL Submit
+	// Unified FL Submit (Flower client_app.py deploy)
 	$("#fl-form").addEventListener("submit", async (e) => {
 		e.preventDefault();
 		const vm_id = $("#vm_id").value.trim();
-		const entry_point = $("#entry_point").value.trim() || "main.py";
-		const reqRaw = $("#requirements").value.trim();
-		const requirements = reqRaw
-			? reqRaw
-					.split(",")
-					.map((s) => s.trim())
-					.filter(Boolean)
-			: [];
-
-		let env_config = {};
-		try {
-			env_config = JSON.parse($("#env_config").value || "{}");
-		} catch (e) {}
-
-		const fl_code = $("#fl_code").value;
+		if (!vm_id) return;
 		$("#fl-submit-status").textContent = "제출 중...";
 
-		const res = await fetchJSON("/api/fl/execute", {
+		// Use env_config as Flower run_config and deploy client_app.py
+		let run_cfg = {};
+		try {
+			run_cfg = JSON.parse($("#env_config").value || "{}");
+		} catch (e) {}
+		if (run_cfg.CLIENT_ID === undefined) run_cfg.CLIENT_ID = vm_id;
+		showEnvPreview(run_cfg);
+		const res = await fetchJSON("/api/fl/deploy-flower-app", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				vm_id,
-				fl_code,
-				env_config,
-				entry_point,
-				requirements,
-			}),
+			body: JSON.stringify({ vm_id, env_config: run_cfg }),
 		});
-
 		$("#fl-submit-status").textContent = res.success ? "성공" : "실패";
 		const out = $("#fl-result");
 		out.hidden = false;
@@ -152,7 +144,6 @@
 		const taskId = $("#log_task_id").value.trim();
 		const vmId = $("#log_vm_id").value.trim();
 		if (!taskId || !vmId) return;
-
 		const res = await fetchJSON(
 			`/api/fl/logs/${encodeURIComponent(taskId)}?vm_id=${encodeURIComponent(
 				vmId
@@ -166,5 +157,5 @@
 
 	// Initial load
 	loadOverview();
-	loadVMs();
+	$("#refresh-vms").click();
 })();
