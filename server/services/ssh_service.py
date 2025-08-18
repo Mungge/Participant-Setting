@@ -51,8 +51,13 @@ class SSHService:
             # SFTP 클라이언트 생성
             sftp = client.open_sftp()
 
-            # 원격 작업 디렉토리 생성
-            remote_work_dir = f"/tmp/fl-workspace/{task_id}"
+            # 홈 디렉토리 경로 얻기
+            stdin, stdout, stderr = client.exec_command("echo $HOME")
+            home_dir = stdout.read().decode("utf-8").strip()
+            logger.info(f"Home directory: {home_dir}")
+
+            # 원격 작업 디렉토리 생성 (홈 디렉토리 사용)
+            remote_work_dir = f"{home_dir}/fl-workspace/{task_id}"
             logger.info(f"Creating remote directory: {remote_work_dir}")
             stdin, stdout, stderr = client.exec_command(f"mkdir -p {remote_work_dir}")
             mkdir_out = stdout.read().decode("utf-8")
@@ -160,8 +165,12 @@ class SSHService:
                 timeout=10
             )
             
+            # 홈 디렉토리 경로 얻기
+            stdin, stdout, stderr = client.exec_command("echo $HOME")
+            home_dir = stdout.read().decode("utf-8").strip()
+            
             # 로그 파일 읽기
-            log_path = f'/tmp/fl-workspace/{task_id}/{task_id}.log'
+            log_path = f'{home_dir}/fl-workspace/{task_id}/{task_id}.log'
             stdin, stdout, stderr = client.exec_command(f'cat {log_path}')
             log_content = stdout.read().decode('utf-8')
             error = stderr.read().decode('utf-8')
