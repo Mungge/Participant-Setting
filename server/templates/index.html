@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Fleecy Cloud Participant - Dashboard</title>
+		<link rel="stylesheet" href="/static/styles.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<header class="app-header">
+			<div class="container head">
+				<div class="brand">
+					<div class="logo">☁️</div>
+					<div class="title">
+						<h1>Fleecy Cloud Participant</h1>
+						<p class="subtitle">로컬 서버 상태와 연합학습 작업을 한눈에</p>
+					</div>
+				</div>
+				<nav class="nav">
+					<a href="#overview">Overview</a>
+					<a href="#vms">VM</a>
+					<a href="#fl">Federated Learning</a>
+					<a href="#logs">Logs</a>
+				</nav>
+			</div>
+		</header>
+
+		<main class="container">
+			<section id="overview" class="card">
+				<div class="card-head">
+					<h2>서버 개요</h2>
+					<button id="refresh-overview" class="btn">새로고침</button>
+				</div>
+				<div id="overview-content" class="grid two">
+					<div class="stat">
+						<div class="label">상태</div>
+						<div id="status" class="value badge">-</div>
+					</div>
+					<div class="stat">
+						<div class="label">시간</div>
+						<div id="timestamp" class="value">-</div>
+					</div>
+				</div>
+			</section>
+
+			<section id="vms" class="card">
+				<div class="card-head">
+					<h2>VM 목록</h2>
+					<button id="refresh-vms" class="btn">새로고침</button>
+				</div>
+				<div id="vms-content">
+					<table class="table" id="vms-table">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>Name</th>
+								<th>Floating IP</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+					<div id="vms-empty" class="empty">데이터가 없습니다.</div>
+				</div>
+			</section>
+
+			<section id="fl" class="card">
+				<div class="card-head">
+					<h2>연합학습 실행</h2>
+				</div>
+				<form id="fl-form" class="form">
+					<div class="form-row">
+						<label for="vm_id">VM ID</label>
+						<input id="vm_id" name="vm_id" placeholder="vm-xxxx" required />
+					</div>
+					<div class="form-row">
+						<label for="entry_point">엔트리 파일</label>
+						<input id="entry_point" name="entry_point" value="main.py" />
+					</div>
+					<div class="form-row">
+						<label for="requirements">requirements (선택)</label>
+						<input
+							id="requirements"
+							name="requirements"
+							placeholder="torch==2.2.0, numpy==1.26.0"
+						/>
+					</div>
+					<div class="form-row">
+						<label for="env_config">환경 변수 (JSON)</label>
+						<textarea
+							id="env_config"
+							name="env_config"
+							rows="4"
+							placeholder='{"EPOCHS": 5, "LR": 0.001}'
+						></textarea>
+					</div>
+					<div class="form-row">
+						<label for="fl_code">연합학습 코드 (Python)</label>
+						<textarea
+							id="fl_code"
+							name="fl_code"
+							rows="10"
+							placeholder="# 여기에 Python 코드를 입력하세요\nimport os\nprint('Hello FL', os.getenv('EPOCHS'))\n"
+						></textarea>
+					</div>
+					<div class="form-actions">
+						<button class="btn primary" type="submit">실행</button>
+						<span id="fl-submit-status" class="hint"></span>
+					</div>
+				</form>
+
+				<div id="fl-result" class="code-block" hidden></div>
+			</section>
+
+			<section id="logs" class="card">
+				<div class="card-head">
+					<h2>작업 로그</h2>
+				</div>
+				<form id="logs-form" class="form small">
+					<div class="form-row">
+						<label for="log_task_id">Task ID</label>
+						<input id="log_task_id" placeholder="fl-task-YYYYMMDD-HHMMSS" />
+					</div>
+					<div class="form-row">
+						<label for="log_vm_id">VM ID</label>
+						<input id="log_vm_id" placeholder="vm-xxxx" />
+					</div>
+					<div class="form-actions">
+						<button id="btn-get-logs" class="btn">로그 조회</button>
+					</div>
+				</form>
+				<pre id="logs-output" class="code-block" hidden></pre>
+			</section>
+		</main>
+
+		<footer class="footer container">
+			<span>© 2025 Fleecy Cloud</span>
+		</footer>
+
+		<script>
+			window.APP_CONFIG = { baseUrl: "" };
+		</script>
+		<script src="/static/app.js"></script>
+	</body>
+</html>
