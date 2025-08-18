@@ -9,7 +9,12 @@ from routes.fl_routes import fl_bp
 
 def create_app():
     """Flask 애플리케이션 팩토리"""
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        static_folder='static',
+        template_folder='templates',
+        static_url_path='/static'
+    )
     
     # CORS 설정
     CORS(app)
