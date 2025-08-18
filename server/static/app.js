@@ -123,7 +123,7 @@
 		} catch (e) {}
 		if (run_cfg.CLIENT_ID === undefined) run_cfg.CLIENT_ID = vm_id;
 		showEnvPreview(run_cfg);
-		const res = await fetchJSON("/api/fl/deploy-flower-app", {
+		const res = await fetchJSON("/api/fl/execute", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ vm_id, env_config: run_cfg }),
