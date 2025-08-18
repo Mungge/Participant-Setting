@@ -31,6 +31,7 @@ class SSHService:
 
             # SSH 연결
             key_path = os.path.expanduser(self.ssh_key_path)
+            logger.info(f"Connecting to {floating_ip} with key {key_path}")
             client.connect(
                 hostname=floating_ip,
                 port=self.ssh_port,
@@ -38,13 +39,34 @@ class SSHService:
                 key_filename=key_path,
                 timeout=10,
             )
+            
+            # 연결 테스트
+            stdin, stdout, stderr = client.exec_command("whoami && pwd && date")
+            test_out = stdout.read().decode("utf-8")
+            test_err = stderr.read().decode("utf-8")
+            logger.info(f"SSH connection test: {test_out}")
+            if test_err:
+                logger.error(f"SSH test error: {test_err}")
 
             # SFTP 클라이언트 생성
             sftp = client.open_sftp()
 
             # 원격 작업 디렉토리 생성
             remote_work_dir = f"/tmp/fl-workspace/{task_id}"
-            client.exec_command(f"mkdir -p {remote_work_dir}")
+            logger.info(f"Creating remote directory: {remote_work_dir}")
+            stdin, stdout, stderr = client.exec_command(f"mkdir -p {remote_work_dir}")
+            mkdir_out = stdout.read().decode("utf-8")
+            mkdir_err = stderr.read().decode("utf-8")
+            if mkdir_err:
+                logger.error(f"Error creating directory: {mkdir_err}")
+            
+            # 디렉토리 생성 확인
+            stdin, stdout, stderr = client.exec_command(f"ls -la {remote_work_dir}")
+            ls_out = stdout.read().decode("utf-8")
+            ls_err = stderr.read().decode("utf-8")
+            logger.info(f"Directory listing: {ls_out}")
+            if ls_err:
+                logger.error(f"Error listing directory: {ls_err}")
 
             # 파일 업로드
             if additional_files:
