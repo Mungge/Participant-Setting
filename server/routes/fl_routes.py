@@ -104,6 +104,8 @@ def execute_federated_learning():
             '"flwr-datasets[vision]>=0.5.0" '
             '"torch==2.7.1" '
             '"torchvision==0.22.1" && '
+            'export PATH=$HOME/.local/bin:$PATH && '
+            'which flwr && '
             'flwr run ."'
         )
 
@@ -138,7 +140,7 @@ def execute_federated_learning():
             'vm_id': vm_id,
             'target_ip': floating_ip,
             'submitted_at': datetime.now().isoformat(),
-            'entry_point': 'noop.py',
+            'entry_point': 'flwr run .',
             'success': result['success'],
             'message': result.get('message', ''),
         }

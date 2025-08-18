@@ -81,9 +81,20 @@ class SSHService:
                     f"nohup python3 {ep} > {task_id}.log 2>&1 &"
                 )
 
+            logger.info(f"Executing command on {floating_ip}: {execute_cmd}")
             stdin, stdout, stderr = client.exec_command(execute_cmd)
             output = stdout.read().decode("utf-8")
             error = stderr.read().decode("utf-8")
+            
+            logger.info(f"Command output: {output}")
+            if error:
+                logger.error(f"Command error: {error}")
+
+            # 파일 목록 확인
+            check_files_cmd = f"ls -la {remote_work_dir}"
+            _, files_out, _ = client.exec_command(check_files_cmd)
+            files_list = files_out.read().decode("utf-8")
+            logger.info(f"Files in remote directory: {files_list}")
 
             # 프로세스 시작 확인
             if custom_command and "flwr run" in custom_command:
