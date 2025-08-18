@@ -11,16 +11,14 @@ class FederatedLearningService:
     def __init__(self):
         self.ssh_service = SSHService()
 
-    def execute_fl_task(self, vm_id: str, fl_code: str, env_config: dict, 
-                       entry_point: str = 'main.py', requirements: Optional[list] = None,
-                       additional_files: Optional[dict] = None,
-                       custom_command: Optional[str] = None) -> Dict:
+    def execute_fl_task(
+        self,
+        vm_id: str,
+        env_config: dict,
+        entry_point: str = 'main.py',
+    ) -> Dict:
         """연합학습 작업 실행"""
-        if requirements is None:
-            requirements = []
-        if additional_files is None:
-            additional_files = {}
-            
+
         vm_list = get_openstack_vmList()
         
         # 해당 VM ID가 존재하는지 확인
@@ -51,12 +49,8 @@ class FederatedLearningService:
         execution_result = self.ssh_service.deploy_and_execute_fl_code(
             floating_ip=floating_ip,
             task_id=task_id,
-            fl_code=fl_code,
             env_config=env_config,
             entry_point=entry_point,
-            requirements=requirements,
-            additional_files=additional_files,
-            custom_command=custom_command
         )
         
         # 응답 생성

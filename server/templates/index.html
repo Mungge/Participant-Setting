@@ -86,7 +86,6 @@
 						<label for="vm_id">VM ID</label>
 						<input id="vm_id" name="vm_id" placeholder="vm-xxxx" required />
 					</div>
-					<!-- requirements 입력은 Flower 템플릿 배포에서는 사용하지 않음 -->
 					<div class="form-row">
 						<label for="env_config">run_config (JSON)</label>
 						<textarea
@@ -95,9 +94,6 @@
 							rows="4"
 							placeholder='{"EPOCHS": 5, "LR": 0.001}'
 						></textarea>
-					</div>
-					<div class="form-row">
-						<!-- config.toml 입력은 Flower 기반에서는 pyproject.toml로 대체되어 제거됨 -->
 					</div>
 					<div class="form-actions">
 						<button class="btn primary" type="submit">실행</button>
