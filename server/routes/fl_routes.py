@@ -3,12 +3,9 @@ from datetime import datetime
 import logging
 import os
 
-from services.fl_service import FederatedLearningService
-
 logger = logging.getLogger(__name__)
 
 fl_bp = Blueprint('fl', __name__)
-fl_service = FederatedLearningService()
 
 @fl_bp.route('/api/fl/execute', methods=['POST'])
 def execute_federated_learning():
@@ -97,16 +94,15 @@ def execute_federated_learning():
         }
 
         custom_cmd = (
-            'bash -lc '
-            '"python3 -m pip install --upgrade pip && '
-            'python3 -m pip install '
-            '"flwr[simulation]>=1.20.0" '
-            '"flwr-datasets[vision]>=0.5.0" '
-            '"torch==2.7.1" '
-            '"torchvision==0.22.1" && '
             'export PATH=$HOME/.local/bin:$PATH && '
+            'python3 -m pip install --upgrade pip && '
+            'python3 -m pip install '
+            'flwr[simulation]>=1.20.0 '
+            'flwr-datasets[vision]>=0.5.0 '
+            'torch==2.7.1 '
+            'torchvision==0.22.1 && '
             'which flwr && '
-            'flwr run ."'
+            'flwr run .'
         )
 
         # VM 정보 조회하고 SSH로 직접 배포
@@ -166,6 +162,8 @@ def get_fl_logs(task_id):
         if not vm_id:
             return jsonify({'error': 'vm_id parameter is required'}), 400
         
+        from services.fl_service import FederatedLearningService
+        fl_service = FederatedLearningService()
         result = fl_service.get_task_logs(task_id, vm_id)
         
         status_code = 200 if result['success'] else 404
