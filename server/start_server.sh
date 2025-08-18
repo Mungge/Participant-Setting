@@ -5,14 +5,14 @@
 echo "Fleecy Cloud Participant Server를 시작합니다..."
 
 # 가상환경 확인 및 생성
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     echo "Python 가상환경을 생성합니다..."
-    python3 -m venv venv
+    python3 -m venv .venv
 fi
 
 # 가상환경 활성화
 echo "가상환경을 활성화합니다..."
-source venv/bin/activate
+source .venv/bin/activate
 
 # 의존성 설치
 echo "의존성을 설치합니다..."
@@ -28,4 +28,4 @@ fi
 
 # 서버 시작
 echo "서버를 시작합니다..."
-python app.py
+python3 app.py

@@ -86,20 +86,9 @@
 						<label for="vm_id">VM ID</label>
 						<input id="vm_id" name="vm_id" placeholder="vm-xxxx" required />
 					</div>
+					<!-- requirements 입력은 Flower 템플릿 배포에서는 사용하지 않음 -->
 					<div class="form-row">
-						<label for="entry_point">엔트리 파일</label>
-						<input id="entry_point" name="entry_point" value="main.py" />
-					</div>
-					<div class="form-row">
-						<label for="requirements">requirements (선택)</label>
-						<input
-							id="requirements"
-							name="requirements"
-							placeholder="torch==2.2.0, numpy==1.26.0"
-						/>
-					</div>
-					<div class="form-row">
-						<label for="env_config">환경 변수 (JSON)</label>
+						<label for="env_config">run_config (JSON)</label>
 						<textarea
 							id="env_config"
 							name="env_config"
@@ -108,13 +97,7 @@
 						></textarea>
 					</div>
 					<div class="form-row">
-						<label for="fl_code">연합학습 코드 (Python)</label>
-						<textarea
-							id="fl_code"
-							name="fl_code"
-							rows="10"
-							placeholder="# 여기에 Python 코드를 입력하세요\nimport os\nprint('Hello FL', os.getenv('EPOCHS'))\n"
-						></textarea>
+						<!-- config.toml 입력은 Flower 기반에서는 pyproject.toml로 대체되어 제거됨 -->
 					</div>
 					<div class="form-actions">
 						<button class="btn primary" type="submit">실행</button>
@@ -122,6 +105,7 @@
 					</div>
 				</form>
 
+				<pre id="env-preview" class="code-block" hidden></pre>
 				<div id="fl-result" class="code-block" hidden></div>
 			</section>
 
