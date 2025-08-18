@@ -1,6 +1,7 @@
 import paramiko
 import os
 import logging
+import time
 from typing import Dict
 
 from config.settings import Config
@@ -31,7 +32,7 @@ class SSHService:
                 timeout=10
             )
             
-            # SFTP 클라이언트 생성
+            # Secure File Transfer Protocol (SFTP) 클라이언트 생성
             sftp = client.open_sftp()
             
             # 원격 작업 디렉토리 생성
@@ -152,4 +153,41 @@ class SSHService:
             return {
                 'success': False,
                 'error': str(e)
+            }
+
+    def check_connection(self, floating_ip: str) -> Dict:
+        """주어진 IP로 SSH 연결이 가능한지 빠르게 체크"""
+        start = time.time()
+        try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(
+                hostname=floating_ip,
+                port=self.ssh_port,
+                username=self.ssh_user,
+                key_filename=os.path.expanduser(self.ssh_key_path),
+                timeout=5
+            )
+            # 원격 호스트 확인
+            stdin, stdout, stderr = client.exec_command('whoami && uname -srm')
+            out = stdout.read().decode('utf-8').strip()
+            err = stderr.read().decode('utf-8').strip()
+            client.close()
+
+            latency_ms = int((time.time() - start) * 1000)
+            return {
+                'success': True,
+                'message': 'SSH connection succeeded',
+                'latency_ms': latency_ms,
+                'remote_info': out,
+                'warning': err or None
+            }
+        except Exception as e:
+            latency_ms = int((time.time() - start) * 1000)
+            logger.error(f"SSH connectivity check failed for {floating_ip}: {str(e)}")
+            return {
+                'success': False,
+                'message': 'SSH connection failed',
+                'error': str(e),
+                'latency_ms': latency_ms
             }

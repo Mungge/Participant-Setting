@@ -34,11 +34,42 @@
 		vms.forEach((vm) => {
 			const tr = document.createElement("tr");
 			tr.innerHTML = `
-        <td><code>${vm.id || ""}</code></td>
-        <td>${vm.name || ""}</td>
-        <td>${vm.floating_ip || ""}</td>
+					<td><code>${vm.id || ""}</code></td>
+					<td>${vm.name || ""}</td>
+					<td>
+						<div style="display:flex;align-items:center;gap:8px;">
+							<span>${vm.floating_ip || ""}</span>
+							${
+								vm.floating_ip
+									? `<button class="btn btn-ssh" data-vm="${vm.id}">SSH 체크</button>`
+									: ""
+							}
+						</div>
+					</td>
       `;
 			tbody.appendChild(tr);
+		});
+
+		// Bind SSH check buttons
+		$$(".btn-ssh").forEach((btn) => {
+			btn.addEventListener("click", async (e) => {
+				const vmId = e.currentTarget.getAttribute("data-vm");
+				e.currentTarget.textContent = "체크 중...";
+				e.currentTarget.disabled = true;
+				try {
+					const res = await fetchJSON(
+						`/api/vms/${encodeURIComponent(vmId)}/ssh-check`
+					);
+					alert(
+						res.success
+							? `성공: ${res.remote_info || ""} (${res.latency_ms}ms)`
+							: `실패: ${res.error || res.message}`
+					);
+				} finally {
+					e.currentTarget.textContent = "SSH 체크";
+					e.currentTarget.disabled = false;
+				}
+			});
 		});
 	}
 	async function loadVMs() {
@@ -46,6 +77,31 @@
 		renderVMs(data.vms || []);
 	}
 	$("#refresh-vms").addEventListener("click", loadVMs);
+
+	// Direct IP SSH check
+	const ipBtn = document.querySelector("#ssh-check-ip-btn");
+	if (ipBtn) {
+		ipBtn.addEventListener("click", async () => {
+			const ipInput = document.querySelector("#ssh-check-ip");
+			const ip = ((ipInput && ipInput.value) || "").trim();
+			if (!ip) return alert("IP를 입력하세요");
+			ipBtn.textContent = "체크 중...";
+			ipBtn.disabled = true;
+			try {
+				const res = await fetchJSON(
+					`/api/ssh-check?ip=${encodeURIComponent(ip)}`
+				);
+				alert(
+					res.success
+						? `성공: ${res.remote_info || ""} (${res.latency_ms}ms)`
+						: `실패: ${res.error || res.message}`
+				);
+			} finally {
+				ipBtn.textContent = "IP로 SSH 체크";
+				ipBtn.disabled = false;
+			}
+		});
+	}
 
 	// FL Submit
 	$("#fl-form").addEventListener("submit", async (e) => {

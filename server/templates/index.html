@@ -52,7 +52,15 @@
 			<section id="vms" class="card">
 				<div class="card-head">
 					<h2>VM 목록</h2>
-					<button id="refresh-vms" class="btn">새로고침</button>
+					<div style="display: flex; gap: 8px; align-items: center">
+						<button id="refresh-vms" class="btn">새로고침</button>
+						<input
+							id="ssh-check-ip"
+							placeholder="직접 IP 입력"
+							style="width: 160px"
+						/>
+						<button id="ssh-check-ip-btn" class="btn">IP로 SSH 체크</button>
+					</div>
 				</div>
 				<div id="vms-content">
 					<table class="table" id="vms-table">
