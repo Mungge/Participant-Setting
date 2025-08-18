@@ -86,7 +86,12 @@ class SSHService:
             error = stderr.read().decode("utf-8")
 
             # 프로세스 시작 확인
-            check_target = (entry_point or "python3") if not custom_command else custom_command.split()[0]
+            if custom_command and "flwr run" in custom_command:
+                check_target = "flwr"
+            elif custom_command:
+                check_target = custom_command.split()[0]
+            else:
+                check_target = entry_point or "python3"
             check_cmd = f"ps aux | grep {check_target} | grep -v grep"
             _, out2, _ = client.exec_command(check_cmd)
             process_check = out2.read().decode("utf-8")

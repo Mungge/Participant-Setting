@@ -127,7 +127,7 @@ def execute_federated_learning():
             floating_ip=floating_ip,
             task_id=task_id,
             env_config={},
-            entry_point='noop.py',
+            entry_point=None,
             additional_files=additional_files,
             custom_command=custom_cmd,
         )
