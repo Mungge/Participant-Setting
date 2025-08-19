@@ -116,12 +116,38 @@
 		if (!vm_id) return;
 		$("#fl-submit-status").textContent = "제출 중...";
 
-		// Use env_config as Flower run_config and deploy client_app.py
+		// Collect configuration from form fields
 		let run_cfg = {};
+
+		// Collect individual field values
+		const remoteAddress = $("#remote_address").value.trim();
+		const epochs = $("#epochs").value.trim();
+		const learningRate = $("#learning_rate").value.trim();
+		const batchSize = $("#batch_size").value.trim();
+		const numRounds = $("#num_rounds").value.trim();
+
+		// Add remote address if provided
+		if (remoteAddress) {
+			run_cfg["remote-address"] = remoteAddress;
+		}
+
+		// Add learning parameters if provided
+		if (epochs) run_cfg.EPOCHS = parseInt(epochs);
+		if (learningRate) run_cfg.LR = parseFloat(learningRate);
+		if (batchSize) run_cfg.BATCH_SIZE = parseInt(batchSize);
+		if (numRounds) run_cfg.NUM_ROUNDS = parseInt(numRounds);
+
+		// Merge with additional JSON config
 		try {
-			run_cfg = JSON.parse($("#env_config").value || "{}");
-		} catch (e) {}
+			const additionalConfig = JSON.parse($("#env_config").value || "{}");
+			run_cfg = { ...run_cfg, ...additionalConfig };
+		} catch (e) {
+			console.warn("Invalid JSON in additional config, ignoring:", e);
+		}
+
+		// Set default CLIENT_ID if not provided
 		if (run_cfg.CLIENT_ID === undefined) run_cfg.CLIENT_ID = vm_id;
+
 		showEnvPreview(run_cfg);
 		const res = await fetchJSON("/api/fl/execute", {
 			method: "POST",

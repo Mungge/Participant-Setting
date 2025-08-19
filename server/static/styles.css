@@ -154,6 +154,18 @@ main.container {
 	gap: 10px;
 	align-items: end;
 }
+.form-section {
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	padding: 16px;
+	background: var(--panel-2);
+}
+.form-section h3 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	color: var(--accent);
+	font-weight: 600;
+}
 .form-row {
 	display: grid;
 	gap: 6px;
