@@ -31,6 +31,7 @@ class SSHService:
 
             # SSH 연결
             key_path = os.path.expanduser(self.ssh_key_path)
+            logger.info(f"Connecting to {floating_ip} with key {key_path}")
             client.connect(
                 hostname=floating_ip,
                 port=self.ssh_port,
@@ -38,13 +39,35 @@ class SSHService:
                 key_filename=key_path,
                 timeout=10,
             )
+            
+            # 연결 테스트
+            stdin, stdout, stderr = client.exec_command("whoami && pwd && date")
+            test_out = stdout.read().decode("utf-8")
+            test_err = stderr.read().decode("utf-8")
+            logger.info(f"SSH connection test: {test_out}")
+            if test_err:
+                logger.error(f"SSH test error: {test_err}")
 
             # SFTP 클라이언트 생성
             sftp = client.open_sftp()
 
-            # 원격 작업 디렉토리 생성
-            remote_work_dir = f"/tmp/fl-workspace/{task_id}"
-            client.exec_command(f"mkdir -p {remote_work_dir}")
+            # 홈 디렉토리 경로 얻기
+            stdin, stdout, stderr = client.exec_command("echo $HOME")
+            home_dir = stdout.read().decode("utf-8").strip()
+            logger.info(f"Home directory: {home_dir}")
+
+            # 현재 디렉토리를 작업 디렉토리로 사용 (가장 안전)
+            remote_work_dir = f"./fl-workspace/{task_id}"
+            logger.info(f"Creating remote directory: {remote_work_dir}")
+            stdin, stdout, stderr = client.exec_command(f"mkdir -p {remote_work_dir}")
+            
+            # 디렉토리 생성 확인
+            stdin, stdout, stderr = client.exec_command(f"ls -la {remote_work_dir}")
+            ls_out = stdout.read().decode("utf-8")
+            ls_err = stderr.read().decode("utf-8")
+            logger.info(f"Directory listing: {ls_out}")
+            if ls_err:
+                logger.error(f"Error listing directory: {ls_err}")
 
             # 파일 업로드
             if additional_files:
@@ -81,12 +104,28 @@ class SSHService:
                     f"nohup python3 {ep} > {task_id}.log 2>&1 &"
                 )
 
+            logger.info(f"Executing command on {floating_ip}: {execute_cmd}")
             stdin, stdout, stderr = client.exec_command(execute_cmd)
             output = stdout.read().decode("utf-8")
             error = stderr.read().decode("utf-8")
+            
+            logger.info(f"Command output: {output}")
+            if error:
+                logger.error(f"Command error: {error}")
+
+            # 파일 목록 확인
+            check_files_cmd = f"ls -la {remote_work_dir}"
+            _, files_out, _ = client.exec_command(check_files_cmd)
+            files_list = files_out.read().decode("utf-8")
+            logger.info(f"Files in remote directory: {files_list}")
 
             # 프로세스 시작 확인
-            check_target = (entry_point or "python3") if not custom_command else custom_command.split()[0]
+            if custom_command and "flwr run" in custom_command:
+                check_target = "flwr"
+            elif custom_command:
+                check_target = custom_command.split()[0]
+            else:
+                check_target = entry_point or "python3"
             check_cmd = f"ps aux | grep {check_target} | grep -v grep"
             _, out2, _ = client.exec_command(check_cmd)
             process_check = out2.read().decode("utf-8")
@@ -122,11 +161,36 @@ class SSHService:
                 timeout=10
             )
             
-            # 로그 파일 읽기
-            log_path = f'/tmp/fl-workspace/{task_id}/{task_id}.log'
-            stdin, stdout, stderr = client.exec_command(f'cat {log_path}')
-            log_content = stdout.read().decode('utf-8')
-            error = stderr.read().decode('utf-8')
+            # 홈 디렉토리 경로 얻기
+            stdin, stdout, stderr = client.exec_command("echo $HOME")
+            home_dir = stdout.read().decode("utf-8").strip()
+            
+            # 로그 파일 읽기 (여러 경로에서 시도)
+            possible_paths = [
+                f'./fl-workspace/{task_id}/{task_id}.log',
+                f'/var/tmp/fl-workspace/{task_id}/{task_id}.log',
+                f'/home/ubuntu/fl-workspace/{task_id}/{task_id}.log'
+            ]
+            
+            log_content = ""
+            error = ""
+            log_found = False
+            
+            for log_path in possible_paths:
+                stdin, stdout, stderr = client.exec_command(f'cat {log_path}')
+                temp_content = stdout.read().decode('utf-8')
+                temp_error = stderr.read().decode('utf-8')
+                
+                if temp_content and not temp_error:
+                    log_content = temp_content
+                    log_found = True
+                    logger.info(f"Found log at: {log_path}")
+                    break
+                elif not temp_error or "No such file" not in temp_error:
+                    error = temp_error
+            
+            if not log_found:
+                error = f"Log file not found in any of the expected locations: {possible_paths}"
             
             # 프로세스 상태 확인
             stdin, stdout, stderr = client.exec_command(f'ps aux | grep {task_id} | grep -v grep')

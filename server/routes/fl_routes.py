@@ -3,12 +3,9 @@ from datetime import datetime
 import logging
 import os
 
-from services.fl_service import FederatedLearningService
-
 logger = logging.getLogger(__name__)
 
 fl_bp = Blueprint('fl', __name__)
-fl_service = FederatedLearningService()
 
 @fl_bp.route('/api/fl/execute', methods=['POST'])
 def execute_federated_learning():
@@ -94,18 +91,38 @@ def execute_federated_learning():
         additional_files = {
             'pyproject.toml': pyproj,
             'client_app.py': read(client_app_path),
+            'run_fl.sh': 
+                '''
+                #!/bin/bash
+                set -e
+                export PATH=$HOME/.local/bin:$PATH
+
+                echo "Checking Python and pip..."
+                python3 --version
+
+                # pip 설치 확인 및 설치
+                if ! python3 -m pip --version 2>/dev/null; then
+                    echo "Installing pip with apt..."
+                    sudo apt update && sudo apt install -y python3-pip
+                fi
+
+                echo "Installing dependencies..."
+                python3 -m pip install --user --upgrade pip
+                python3 -m pip install --user flwr[simulation]>=1.20.0 flwr-datasets[vision]>=0.5.0 torch==2.7.1 torchvision==0.22.1
+
+                echo "Checking flwr installation..."
+                which flwr || echo "flwr not in PATH, will use python -m flwr"
+
+                echo "Starting Flower client..."
+                if command -v flwr >/dev/null 2>&1; then
+                    flwr run .
+                else
+                    python3 -m flwr run .
+                fi
+                '''
         }
 
-        custom_cmd = (
-            'bash -lc '
-            '"python3 -m pip install --upgrade pip && '
-            'python3 -m pip install '
-            '"flwr[simulation]>=1.20.0" '
-            '"flwr-datasets[vision]>=0.5.0" '
-            '"torch==2.7.1" '
-            '"torchvision==0.22.1" && '
-            'flwr run ."'
-        )
+        custom_cmd = 'chmod +x run_fl.sh && ./run_fl.sh'
 
         # VM 정보 조회하고 SSH로 직접 배포
         from utils.openstack import get_openstack_vmList
@@ -127,7 +144,7 @@ def execute_federated_learning():
             floating_ip=floating_ip,
             task_id=task_id,
             env_config={},
-            entry_point='noop.py',
+            entry_point=None,
             additional_files=additional_files,
             custom_command=custom_cmd,
         )
@@ -138,7 +155,7 @@ def execute_federated_learning():
             'vm_id': vm_id,
             'target_ip': floating_ip,
             'submitted_at': datetime.now().isoformat(),
-            'entry_point': 'noop.py',
+            'entry_point': 'flwr run .',
             'success': result['success'],
             'message': result.get('message', ''),
         }
@@ -164,6 +181,8 @@ def get_fl_logs(task_id):
         if not vm_id:
             return jsonify({'error': 'vm_id parameter is required'}), 400
         
+        from services.fl_service import FederatedLearningService
+        fl_service = FederatedLearningService()
         result = fl_service.get_task_logs(task_id, vm_id)
         
         status_code = 200 if result['success'] else 404
