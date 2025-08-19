@@ -86,15 +86,86 @@
 						<label for="vm_id">VM ID</label>
 						<input id="vm_id" name="vm_id" placeholder="vm-xxxx" required />
 					</div>
-					<div class="form-row">
-						<label for="env_config">run_config (JSON)</label>
-						<textarea
-							id="env_config"
-							name="env_config"
-							rows="4"
-							placeholder='{"EPOCHS": 5, "LR": 0.001}'
-						></textarea>
+
+					<div class="form-section">
+						<h3>연합학습 서버 설정</h3>
+						<div class="form-row">
+							<label for="remote_address">원격 Federation 주소</label>
+							<input
+								id="remote_address"
+								name="remote_address"
+								placeholder="예: 192.168.1.100:9092"
+								title="Flower 서버의 IP:Port 주소"
+							/>
+						</div>
 					</div>
+
+					<div class="form-section">
+						<h3>학습 파라미터</h3>
+						<div class="grid two">
+							<div class="form-row">
+								<label for="epochs">Epochs</label>
+								<input
+									id="epochs"
+									name="epochs"
+									type="number"
+									placeholder="5"
+									min="1"
+									title="학습 반복 횟수"
+								/>
+							</div>
+							<div class="form-row">
+								<label for="learning_rate">Learning Rate</label>
+								<input
+									id="learning_rate"
+									name="learning_rate"
+									type="number"
+									step="0.0001"
+									placeholder="0.001"
+									title="학습률"
+								/>
+							</div>
+						</div>
+						<div class="grid two">
+							<div class="form-row">
+								<label for="batch_size">Batch Size</label>
+								<input
+									id="batch_size"
+									name="batch_size"
+									type="number"
+									placeholder="32"
+									min="1"
+									title="배치 크기"
+								/>
+							</div>
+							<div class="form-row">
+								<label for="num_rounds">Rounds</label>
+								<input
+									id="num_rounds"
+									name="num_rounds"
+									type="number"
+									placeholder="10"
+									min="1"
+									title="연합학습 라운드 수"
+								/>
+							</div>
+						</div>
+					</div>
+
+					<div class="form-section">
+						<h3>고급 설정 (선택사항)</h3>
+						<div class="form-row">
+							<label for="env_config">추가 설정 (JSON)</label>
+							<textarea
+								id="env_config"
+								name="env_config"
+								rows="3"
+								placeholder='{"MODEL_NAME": "resnet18", "DATASET": "cifar10"}'
+								title="JSON 형식의 추가 설정 파라미터"
+							></textarea>
+						</div>
+					</div>
+
 					<div class="form-actions">
 						<button class="btn primary" type="submit">실행</button>
 						<span id="fl-submit-status" class="hint"></span>
