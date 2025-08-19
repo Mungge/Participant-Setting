@@ -14,11 +14,6 @@
 
 ---
 
-```mermaid
-flowchart LR
-		A[OpenStack VM] -- Node Exporter --> B[Prometheus (DevStack VM)] -- 데이터 소스 --> C[Grafana (DevStack VM)]
-```
-
 | 구성 요소         | 역할 설명                                                 |
 | ----------------- | --------------------------------------------------------- |
 | **Node Exporter** | OpenStack VM의 시스템 메트릭(메모리, CPU, 디스크 등) 수집 |
