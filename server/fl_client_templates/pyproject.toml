@@ -30,6 +30,7 @@ publisher = "Jinhyeok"
 # Format: "<module>:<object>"
 [tool.flwr.app.components]
 clientapp = "client_app:app"
+serverapp = "server_app:app"
 
 # Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
