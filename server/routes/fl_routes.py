@@ -9,7 +9,7 @@ fl_bp = Blueprint('fl', __name__)
 
 @fl_bp.route('/api/fl/execute', methods=['POST'])
 def execute_federated_learning():
-    """VM ID와 run_config를 받아 client_app.py를 실행(flwr run .)"""
+    """VM ID와 run_config, 그리고 파일들을 받아 client_app.py를 실행(flwr run .)"""
     try:
         if not request.is_json:
             return jsonify({'error': 'Content-Type must be application/json'}), 400
@@ -22,78 +22,34 @@ def execute_federated_learning():
 
         vm_id = data['vm_id']
         run_config = data.get('env_config', {}) or {}
+        received_files = data.get('files', {})  # 요청으로 받은 파일들
 
-        # 템플릿 로드
-        base = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'fl_client_templates')
-        pyproject_path = os.path.join(base, 'pyproject.toml')
-        client_app_path = os.path.join(base, 'client_app.py')
-        for p in (pyproject_path, client_app_path):
-            if not os.path.exists(p):
-                return jsonify({'success': False, 'error': f'Template file missing: {p}'}), 500
+        # 필수 파일 확인
+        if not received_files or not received_files.get('pyproject.toml') or not received_files.get('client_app.py') or not received_files.get('server_app.py'):
+            return jsonify({'success': False, 'error': 'Required files (pyproject.toml, client_app.py, server_app.py) missing in request'}), 400
+            
+        logger.info("Using files from request payload")
+        pyproj_content = received_files.get('pyproject.toml', '')
+        client_app_content = received_files.get('client_app.py', '')
+        server_app_content = received_files.get('server_app.py', '')
+        task_content = received_files.get('task.py', '')
 
-        def read(p):
-            with open(p, 'r', encoding='utf-8') as f:
-                return f.read()
+        # 파일들이 백엔드에서 이미 완전히 준비된 상태로 옴
+        # 추가 패치 불필요
 
-        # pyproject.toml 패치: clientapp 경로와 run_config, remote federation 주소
-        def to_toml_literal(val):
-            if isinstance(val, bool):
-                return 'true' if val else 'false'
-            if isinstance(val, (int, float)):
-                return str(val)
-            s = str(val).replace('"', '\"')
-            return f'"{s}"'
-
-        import re as _re
-        def patch_components_client_only(text: str, client_path: str) -> str:
-            block = "[tool.flwr.app.components]\n" + f"clientapp = \"{client_path}\"\n\n"
-            pat = _re.compile(r"(?ms)^\[tool\\.flwr\\.app\\.components\]\s*.*?(?=^\[|\Z)")
-            return pat.sub(block.rstrip('\n'), text) if pat.search(text) else text + ("\n" if not text.endswith('\n') else "") + "\n" + block
-
-        def patch_pyproject_config(text: str, cfg: dict) -> str:
-            if not cfg:
-                return text
-            lines = ["[tool.flwr.app.config]"] + [f"{k} = {to_toml_literal(v)}" for k, v in cfg.items()]
-            block = "\n".join(lines) + "\n\n"
-            pat = _re.compile(r"(?ms)^\[tool\\.flwr\\.app\\.config\]\s*.*?(?=^\[|\Z)")
-            return pat.sub(block.rstrip('\n'), text) if pat.search(text) else text + ("\n" if not text.endswith('\n') else "") + "\n" + block
-
-        def patch_federations_default_to_remote(text: str) -> str:
-            pat = _re.compile(r"(?m)^(\[tool\\.flwr\\.federations\][\s\S]*?)(^\[|\Z)")
-            m = pat.search(text)
-            if not m:
-                return text + ("\n" if not text.endswith("\n") else "") + "\n[tool.flwr.federations]\ndefault = \"remote-federation\"\n\n"
-            sec = m.group(1)
-            sec = _re.sub(r"(?m)^default\s*=\s*\".*?\"", 'default = "remote-federation"', sec)
-            a, b = m.span(1)
-            return text[:a] + sec + text[b:]
-
-        def set_remote_address(text: str, address: str) -> str:
-            pat = _re.compile(r"(?ms)^\[tool\\.flwr\\.federations\\.remote-federation\]\s*.*?(?=^\[|\Z)")
-            line = f"address = \"{address}\"\n"
-            if pat.search(text):
-                def repl(m):
-                    blk = m.group(0)
-                    blk = _re.sub(r"(?m)^address\s*=\s*\".*?\"", line.rstrip('\n'), blk) if _re.search(r"(?m)^address\s*=\s*\".*?\"", blk) else blk + ("\n" if not blk.endswith('\n') else "") + line
-                    return blk
-                return pat.sub(repl, text)
-            return text + ("\n" if not text.endswith('\n') else "") + "\n[tool.flwr.federations.remote-federation]\n" + line + "insecure = true\n\n"
-
-        pyproj = read(pyproject_path)
-        pyproj = patch_components_client_only(pyproj, 'client_app:app')
-        pyproj = patch_federations_default_to_remote(pyproj)
-        remote_addr = run_config.get('remote-address') or run_config.get('superlink-address')
-        if isinstance(remote_addr, str) and remote_addr.strip():
-            pyproj = set_remote_address(pyproj, remote_addr.strip())
-        cfg_only = {k: v for k, v in run_config.items() if k not in {'remote-address', 'superlink-address'}}
-        pyproj = patch_pyproject_config(pyproj, cfg_only)
-
+        # 파일들 준비
         additional_files = {
-            'pyproject.toml': pyproj,
-            'client_app.py': read(client_app_path),
-            'run_fl.sh': 
-                '''
-                #!/bin/bash
+            'pyproject.toml': pyproj_content,
+            'client_app.py': client_app_content,
+            'server_app.py': server_app_content,
+        }
+        
+        # task.py가 있으면 추가
+        if task_content:
+            additional_files['task.py'] = task_content
+            
+        # 실행 스크립트 추가
+        additional_files['run_fl.sh'] = '''#!/bin/bash
                 set -e
                 export PATH=$HOME/.local/bin:$PATH
 
@@ -108,7 +64,7 @@ def execute_federated_learning():
 
                 echo "Installing dependencies..."
                 python3 -m pip install --user --upgrade pip
-                python3 -m pip install --user flwr[simulation]>=1.20.0 flwr-datasets[vision]>=0.5.0 torch==2.7.1 torchvision==0.22.1
+                python3 -m pip install --user flwr>=1.20.0 torch==2.7.1 torchvision==0.22.1 mlflow scikit-learn
 
                 echo "Checking flwr installation..."
                 which flwr || echo "flwr not in PATH, will use python -m flwr"
@@ -117,10 +73,9 @@ def execute_federated_learning():
                 if command -v flwr >/dev/null 2>&1; then
                     flwr run .
                 else
-                    python3 -m flwr run .
+                    flwr run .
                 fi
                 '''
-        }
 
         custom_cmd = 'chmod +x run_fl.sh && ./run_fl.sh'
 
