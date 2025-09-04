@@ -15,7 +15,7 @@ class Config:
     
     # SSH 설정
     SSH_USER = os.environ.get('SSH_USER', 'ubuntu')
-    SSH_KEY_PATH = os.environ.get('SSH_KEY_PATH', '~/.ssh/key.pem')
+    SSH_KEY_PATH = os.environ.get('SSH_KEY_PATH', '~/key.pem')
     SSH_PORT = int(os.environ.get('SSH_PORT', '22'))
     
     # OpenStack 설정
