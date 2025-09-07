@@ -2,6 +2,9 @@ from flask import Blueprint, jsonify, request
 from datetime import datetime
 import logging
 import os
+import tempfile
+import subprocess
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -128,40 +131,122 @@ def execute_federated_learning():
         return jsonify({'success': False, 'error': 'Failed to execute federated learning'}), 500
 
 
-@fl_bp.route('/api/fl/logs/<string:task_id>', methods=['GET'])
-def get_fl_logs(task_id):
-    """연합학습 작업 로그 조회"""
+@fl_bp.route('/api/fl/execute-local', methods=['POST'])
+def execute_federated_learning_local():
+    """파일들을 받아서 로컬에서 python3 client_app.py를 직접 실행"""
     try:
-        vm_id = request.args.get('vm_id')
-        if not vm_id:
-            return jsonify({'error': 'vm_id parameter is required'}), 400
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+        data = request.get_json()
+        required_fields = ['server_address']
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            return jsonify({'error': f'Missing required fields: {missing}', 'required_fields': required_fields}), 400
+
+        # 파라미터 추출
+        server_address = data['server_address']
+        local_epochs = data.get('local_epochs', 1)
+        received_files = data.get('files', {})
+
+        # 필수 파일 확인
+        required_files = ['client_app.py', 'task.py']
+        missing_files = [f for f in required_files if f not in received_files]
+        if missing_files:
+            return jsonify({'success': False, 'error': f'Required files missing: {missing_files}'}), 400
+
+        # 임시 디렉토리 생성
+        temp_dir = tempfile.mkdtemp(prefix='fl_client_')
+        task_id = f"fl-local-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         
-        from services.fl_service import FederatedLearningService
-        fl_service = FederatedLearningService()
-        result = fl_service.get_task_logs(task_id, vm_id)
+        # 파일들을 임시 디렉토리에 저장
+        for filename, content in received_files.items():
+            file_path = os.path.join(temp_dir, filename)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
         
-        status_code = 200 if result['success'] else 404
-        return jsonify(result), status_code
+        logger.info(f"Files written to temporary directory: {temp_dir}")
+        
+        # client_app.py 실행 명령 구성
+        python_cmd = [
+            'python3', 
+            os.path.join(temp_dir, 'client_app.py'),
+            '--server-address', server_address,
+            '--local-epochs', str(local_epochs)
+        ]
+        
+        # 백그라운드에서 실행할 함수
+        def run_client():
+            try:
+                # 환경 변수 설정 (필요한 경우)
+                env = os.environ.copy()
+                env['PYTHONPATH'] = temp_dir
+                
+                # 1. 먼저 필요한 패키지들 설치
+                logger.info(f"Installing required packages for {task_id}")
+                
+                pip_cmd = [
+                    'python3', '-m', 'pip', 'install', '--user',
+                    'flwr>=1.20.0', 'torch==2.7.1', 'torchvision==0.22.1', 
+                    'mlflow', 'scikit-learn', 'Pillow'
+                ]
+                
+                pip_process = subprocess.run(
+                    pip_cmd,
+                    cwd=temp_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=600  # 10분 타임아웃 (패키지 설치)
+                )
+                
+                if pip_process.returncode != 0:
+                    logger.error(f"Package installation failed for {task_id}: {pip_process.stderr}")
+                    return
+                else:
+                    logger.info(f"Packages installed successfully for {task_id}")
+                
+                # 2. client_app.py 실행
+                logger.info(f"Starting FL client {task_id}")
+                process = subprocess.run(
+                    python_cmd,
+                    cwd=temp_dir,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=3600  # 1시간 타임아웃
+                )
+                
+                # 결과 로깅
+                if process.returncode == 0:
+                    logger.info(f"FL Client {task_id} completed successfully")
+                    logger.info(f"Output: {process.stdout}")
+                else:
+                    logger.error(f"FL Client {task_id} failed with return code {process.returncode}")
+                    logger.error(f"Stderr: {process.stderr}")
+                    
+            except subprocess.TimeoutExpired:
+                logger.error(f"FL Client {task_id} timed out")
+            except Exception as e:
+                logger.error(f"Error running FL Client {task_id}: {str(e)}")
+
+        # 백그라운드 스레드에서 실행
+        thread = threading.Thread(target=run_client, daemon=True)
+        thread.start()
+        
+        response = {
+            'task_id': task_id,
+            'server_address': server_address,
+            'local_epochs': local_epochs,
+            'submitted_at': datetime.now().isoformat(),
+            'success': True,
+            'message': 'Federated Learning client started successfully',
+            'temp_dir': temp_dir,
+            'command': ' '.join(python_cmd)
+        }
+        
+        return jsonify(response), 201
         
     except Exception as e:
-        logger.error(f"Error getting FL logs for {task_id}: {str(e)}")
-        return jsonify({'error': 'Failed to retrieve logs'}), 500
-
-@fl_bp.route('/api/fl/status/<string:vm_id>', methods=['GET'])
-def get_task_status(vm_id):
-    """현재 실행 중인 작업 상태"""
-    # TODO: 실제 작업 상태 조회 로직 구현
-    return jsonify({
-        'active_tasks': [
-            {
-                'task_id': 'fl-training-001',
-                'type': 'federated_learning',
-                'status': 'running',
-                'progress': 75.5,
-                'started_at': '2025-08-11T10:30:00Z'
-            }
-        ],
-        'completed_tasks': 5,
-        'failed_tasks': 0,
-        'timestamp': datetime.now().isoformat()
-    })
+        logger.error(f"Error executing local federated learning: {str(e)}")
+        return jsonify({'success': False, 'error': f'Failed to execute local federated learning: {str(e)}'}), 500
