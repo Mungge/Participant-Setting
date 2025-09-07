@@ -50,32 +50,34 @@ def execute_federated_learning():
             
         # 실행 스크립트 추가
         additional_files['run_fl.sh'] = '''#!/bin/bash
-                set -e
-                export PATH=$HOME/.local/bin:$PATH
+set -e
+export PATH=$HOME/.local/bin:$PATH
 
-                echo "Checking Python and pip..."
-                python3 --version
+echo "=== Flower 클라이언트 설정 시작 ==="
 
-                # pip 설치 확인 및 설치
-                if ! python3 -m pip --version 2>/dev/null; then
-                    echo "Installing pip with apt..."
-                    sudo apt update && sudo apt install -y python3-pip
-                fi
+echo "Python 및 pip 확인..."
+python3 --version
 
-                echo "Installing dependencies..."
-                python3 -m pip install --user --upgrade pip
-                python3 -m pip install --user flwr>=1.20.0 torch==2.7.1 torchvision==0.22.1 mlflow scikit-learn
+# pip 설치 확인 및 설치
+if ! python3 -m pip --version 2>/dev/null; then
+    echo "pip를 설치합니다..."
+    sudo apt update && sudo apt install -y python3-pip
+fi
 
-                echo "Checking flwr installation..."
-                which flwr || echo "flwr not in PATH, will use python -m flwr"
+echo "의존성 패키지를 설치합니다..."
+python3 -m pip install --user --upgrade pip
+python3 -m pip install --user flwr>=1.20.0 torch==2.7.1 torchvision==0.22.1
 
-                echo "Starting Flower client..."
-                if command -v flwr >/dev/null 2>&1; then
-                    flwr run .
-                else
-                    flwr run .
-                fi
-                '''
+echo "설치된 패키지 확인:"
+python3 -m pip list --user | grep -E "(flwr|torch)"
+
+echo "Flower 클라이언트를 시작합니다..."
+echo "python3로 클라이언트 실행"
+echo "파티션 ID: ` + str(partition_id) + `"
+echo "전체 파티션 수: ` + str(num_partitions) + `"
+echo "집계자 주소: ` + aggregator_address + `"
+python3 client_app.py --server-address ` + aggregator_address + ` --partition-id ` + str(partition_id) + ` --num-partitions ` + str(num_partitions) + ` --local-epochs 3
+'''
 
         custom_cmd = 'chmod +x run_fl.sh && ./run_fl.sh'
 
