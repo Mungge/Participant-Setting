@@ -187,8 +187,13 @@ def execute_federated_learning_local():
                 # 1. 먼저 필요한 패키지들 설치
                 logger.info(f"Installing required packages for {task_id}")
                 
+                # pip 업그레이드 먼저 실행
+                upgrade_cmd = ['python3', '-m', 'pip', 'install', '--upgrade', 'pip']
+                subprocess.run(upgrade_cmd, cwd=temp_dir, env=env, capture_output=True)
+                
+                # 패키지 설치
                 pip_cmd = [
-                    'python3', '-m', 'pip', 'install', '--user',
+                    'python3', '-m', 'pip', 'install',
                     'flwr>=1.20.0', 'torch==2.7.1', 'torchvision==0.22.1', 
                     'mlflow', 'scikit-learn', 'Pillow'
                 ]
@@ -203,10 +208,14 @@ def execute_federated_learning_local():
                 )
                 
                 if pip_process.returncode != 0:
-                    logger.error(f"Package installation failed for {task_id}: {pip_process.stderr}")
+                    logger.error(f"Package installation failed for {task_id}")
+                    logger.error(f"STDOUT: {pip_process.stdout}")
+                    logger.error(f"STDERR: {pip_process.stderr}")
+                    logger.error(f"Return code: {pip_process.returncode}")
                     return
                 else:
                     logger.info(f"Packages installed successfully for {task_id}")
+                    logger.info(f"Installation output: {pip_process.stdout}")
                 
                 # 2. client_app.py 실행
                 logger.info(f"Starting FL client {task_id}")
